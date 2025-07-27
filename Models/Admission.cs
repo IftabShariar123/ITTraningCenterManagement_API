@@ -24,7 +24,7 @@ namespace TrainingCenter_Api.Models
         public DateTime AdmissionDate { get; set; }
         public string? Remarks { get; set; }
 
-        public virtual ICollection<Invoice>? Invoices { get; set; }
+        //public virtual ICollection<Invoice>? Invoices { get; set; }
         public List<AdmissionDetail> AdmissionDetails { get; set; } = new List<AdmissionDetail>();
 
 
