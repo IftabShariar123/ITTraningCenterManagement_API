@@ -12,7 +12,7 @@ namespace TrainingCenter_Api.Models
         public virtual Employee? Employee { get; set; }
 
         [NotMapped] 
-        public List<int> SelectedCourseIds { get; set; } = new List<int>();// This will store comma-separated course names or IDs
+        public List<int> SelectedCourseIds { get; set; } = new List<int>();
 
         public bool IsActive { get; set; }
         public string? Remarks { get; set; }
@@ -22,3 +22,9 @@ namespace TrainingCenter_Api.Models
         public virtual ICollection<BatchPlanningInstructor> BatchPlanningInstructors { get; set; } = new List<BatchPlanningInstructor>();
     }
 }
+
+
+
+
+
+

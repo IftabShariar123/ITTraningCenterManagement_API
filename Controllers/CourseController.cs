@@ -93,7 +93,7 @@ namespace TrainingCenter_Api.Controllers
                     IsPrimaryInstructor = ic.IsPrimaryInstructor,
                     AssignmentDate = ic.AssignmentDate
                 }).ToList(),
-                   ClassRoom = course.ClassRoomCourse_Junction_Tables.Select(cr => new
+                   ClassRooms = course.ClassRoomCourse_Junction_Tables.Select(cr => new
                    {
                        ClassRoomId = cr.ClassRoomId,
                        RoomName = cr.ClassRoom.RoomName,

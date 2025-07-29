@@ -9,7 +9,7 @@ namespace TrainingCenter_Api.Models
         public int ClassScheduleId { get; set; }     
 
         [NotMapped]
-        public List<int> SelectedDayIds { get; set; } = new List<int>();// This will store comma-separated course names or IDs
+        public List<int> SelectedDayIds { get; set; } = new List<int>();// This will store comma-separated day names 
         public string? SelectedDays { get; set; }
         public int SlotId { get; set; }
         public virtual Slot? Slot { get; set; }

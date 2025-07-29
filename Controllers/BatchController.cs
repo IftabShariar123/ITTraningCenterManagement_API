@@ -23,80 +23,6 @@ namespace TrainingCenter_Api.Controllers
         }
 
 
-        //// GET: api/Batches
-        //[HttpGet("GetBatches")]
-        //public async Task<ActionResult<IEnumerable<BatchDto>>> GetBatches()
-        //{
-        //    var batches = await _context.Batches
-        //        .Include(b => b.Course)
-        //        .Include(b => b.Instructor)
-        //        .Include(b => b.ClassRoom)
-        //        .ToListAsync();
-
-        //    var batchDtos = batches.Select(b => new BatchDto
-        //    {
-        //        BatchId = b.BatchId,
-        //        BatchName = b.BatchName,
-        //        CourseId = b.CourseId,
-        //        StartDate = b.StartDate,
-        //        EndDate = b.EndDate,
-        //        BatchType = b.BatchType,
-        //        InstructorId = b.InstructorId,
-        //        ClassRoomId = b.ClassRoomId,
-        //        IsActive = b.IsActive,
-        //        Remarks = b.Remarks,
-        //        SelectedScheduleIds = !string.IsNullOrEmpty(b.SelectedClassSchedules)
-        //            ? b.SelectedClassSchedules.Split(',').Select(int.Parse).ToList()
-        //            : new List<int>(),
-        //        PreviousInstructorIds = !string.IsNullOrEmpty(b.PreviousInstructorIdsString)
-        //            ? b.PreviousInstructorIdsString.Split(',').Select(int.Parse).ToList()
-        //            : new List<int>(),
-        //        CourseName = b.Course?.CourseName,
-        //        EmployeeName = b.Instructor?.Employee?.EmployeeName,
-        //        ClassRoomName = b.ClassRoom?.RoomName,
-
-        //    }).ToList();
-
-        //    return Ok(batchDtos);
-        //}
-
-
-        //[HttpGet("GetBatch/{id}")]
-        //public async Task<ActionResult<Batch>> GetBatch(int id)
-        //{
-        //    var batches = await _context.Batches
-        //        .Include(b => b.Course)
-        //        .Include(b => b.Instructor)
-        //        .Include(b => b.ClassRoom)
-        //        .ToListAsync();
-
-        //    var batchDtos = batches.Select(b => new BatchDto
-        //    {
-        //        BatchId = b.BatchId,
-        //        BatchName = b.BatchName,
-        //        CourseId = b.CourseId,
-        //        StartDate = b.StartDate,
-        //        EndDate = b.EndDate,
-        //        BatchType = b.BatchType,
-        //        InstructorId = b.InstructorId,
-        //        ClassRoomId = b.ClassRoomId,
-        //        IsActive = b.IsActive,
-        //        Remarks = b.Remarks,
-        //        SelectedScheduleIds = !string.IsNullOrEmpty(b.SelectedClassSchedules)
-        //            ? b.SelectedClassSchedules.Split(',').Select(int.Parse).ToList()
-        //            : new List<int>(),
-        //        PreviousInstructorIds = !string.IsNullOrEmpty(b.PreviousInstructorIdsString)
-        //            ? b.PreviousInstructorIdsString.Split(',').Select(int.Parse).ToList()
-        //            : new List<int>(),
-        //        CourseName = b.Course?.CourseName,
-        //        EmployeeName = b.Instructor?.Employee?.EmployeeName,
-        //        ClassRoomName = b.ClassRoom?.RoomName,
-
-        //    }).ToList();
-
-        //    return Ok(batchDtos);
-        //}
-
 
         [HttpGet("GetBatches")]
         public async Task<ActionResult<IEnumerable<BatchDto>>> GetBatches()
@@ -176,6 +102,89 @@ namespace TrainingCenter_Api.Controllers
                 CourseName = batch.Course?.CourseName,
                 EmployeeName = batch.Instructor?.Employee?.EmployeeName,
                 ClassRoomName = batch.ClassRoom?.RoomName
+            });
+        }
+
+
+        [HttpGet("GetBatches/{id}")]
+        public async Task<ActionResult<object>> GetBatches(int id)
+        {
+            var batch = await _context.Batches
+                .Include(b => b.Course)
+                .Include(b => b.Instructor)
+                    .ThenInclude(i => i.Employee)
+                .Include(b => b.ClassRoom)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(b => b.BatchId == id);
+
+            if (batch == null)
+                return NotFound();
+            // Fetch previous instructors
+            var previousInstructorIds = !string.IsNullOrEmpty(batch.PreviousInstructorIdsString)
+                ? batch.PreviousInstructorIdsString.Split(',').Select(int.Parse).ToList()
+                : new List<int>();
+
+            var previousInstructors = await _context.Instructors
+                .Include(i => i.Employee)
+                .Where(i => previousInstructorIds.Contains(i.InstructorId))
+                .Select(i => i.Employee.EmployeeName)
+                .ToListAsync();
+
+
+            var selectedScheduleIds = !string.IsNullOrEmpty(batch.SelectedClassSchedules)
+                ? batch.SelectedClassSchedules.Split(',').Select(int.Parse).ToList()
+                : new List<int>();
+
+            // Load class schedules with Slot
+            var classSchedules = await _context.ClassSchedules
+                .Include(cs => cs.Slot)
+                .Where(cs => selectedScheduleIds.Contains(cs.ClassScheduleId))
+                .ToListAsync();
+
+            // Build anonymous objects for schedules
+            var scheduleList = classSchedules.Select(cs => new
+            {
+                classScheduleId = cs.ClassScheduleId,
+                selectedDays = cs.SelectedDays,
+                slotId = cs.SlotId,
+                slot = cs.Slot != null
+                    ? new
+                    {
+                        timeSlotType = cs.Slot.TimeSlotType,
+                        startTimeString = cs.Slot.StartTime.ToString("HH:mm"),
+                        endTimeString = cs.Slot.EndTime.ToString("HH:mm")
+                    }
+                    : null,
+                scheduleDate = cs.ScheduleDate,
+                isActive = cs.IsActive
+            }).ToList();
+
+            return Ok(new
+            {
+                batch.BatchId,
+                batch.BatchName,
+                batch.CourseId,
+                batch.StartDate,
+                batch.EndDate,
+                batch.BatchType,
+                batch.InstructorId,
+                batch.ClassRoomId,
+                batch.IsActive,
+                batch.Remarks,
+                batch.SelectedClassSchedules,
+                batch.PreviousInstructorIdsString,
+                SelectedScheduleIds = selectedScheduleIds,
+                PreviousInstructorIds = !string.IsNullOrEmpty(batch.PreviousInstructorIdsString)
+                    ? batch.PreviousInstructorIdsString.Split(',').Select(int.Parse).ToList()
+                    : new List<int>(),
+                CourseName = batch.Course?.CourseName,
+                EmployeeName = batch.Instructor?.Employee?.EmployeeName,
+                InstructorName = batch.Instructor?.Employee?.EmployeeName,
+                ClassRoomName = batch.ClassRoom?.RoomName,
+                PreviousInstructorNames = previousInstructors,
+
+                // 🔥 Now schedules included directly
+                schedules = scheduleList
             });
         }
 
