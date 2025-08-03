@@ -11,7 +11,5 @@ namespace TrainingCenter_Api.Models
 
         public bool IsActive { get; set; }
 
-
-
     }
 }

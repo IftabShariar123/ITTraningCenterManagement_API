@@ -474,94 +474,7 @@ namespace TrainingCenter_Api.Controllers
                 payableAmount = payableAmount > 0 ? payableAmount : 0
             });
         }
-
-
-        //[HttpGet("visitor-total-amount/{visitorId}")]
-        //public async Task<IActionResult> GetVisitorTotalAmount(int visitorId)
-        //{
-        //    try
-        //    {
-        //        // 1. Verify visitor exists
-        //        var visitor = await _context.Visitors.FindAsync(visitorId);
-        //        if (visitor == null)
-        //        {
-        //            return NotFound("Visitor not found");
-        //        }
-
-        //        // 2. Get all admissions for this visitor with details
-        //        var admissions = await _context.Admissions
-        //            .Include(a => a.AdmissionDetails)
-        //                .ThenInclude(ad => ad.Batch)
-        //                    .ThenInclude(b => b.Course)
-        //            .Include(a => a.Offer)
-        //            .Where(a => a.VisitorId == visitorId)
-        //            .ToListAsync();
-
-        //        // 3. Initialize variables for totals
-        //        decimal totalRawCourseFees = 0m;
-        //        decimal totalAfterOfferDiscounts = 0m;
-        //        decimal totalAfterFixedDiscounts = 0m;
-        //        var admissionsList = new List<object>();
-
-        //        // 4. Calculate totals for each admission
-        //        foreach (var admission in admissions)
-        //        {
-        //            // Calculate raw course fees for this admission
-        //            decimal admissionRawTotal = admission.AdmissionDetails
-        //                .Sum(ad => ad.Batch?.Course?.CourseFee ?? 0m);
-
-        //            // Apply offer discount if exists
-        //            decimal afterOfferDiscount = admissionRawTotal;
-        //            if (admission.Offer != null)
-        //            {
-        //                afterOfferDiscount = admissionRawTotal * (100 - admission.Offer.DiscountPercentage) / 100;
-        //            }
-
-        //            // Apply fixed discount amount
-        //            decimal afterFixedDiscount = afterOfferDiscount - (admission.DiscountAmount ?? 0m);
-
-        //            // Accumulate totals
-        //            totalRawCourseFees += admissionRawTotal;
-        //            totalAfterOfferDiscounts += afterOfferDiscount;
-        //            totalAfterFixedDiscounts += afterFixedDiscount;
-
-        //            // Add admission details to list
-        //            admissionsList.Add(new
-        //            {
-        //                AdmissionNo = admission.AdmissionNo,
-        //                AdmissionDate = admission.AdmissionDate,
-        //                RawCourseFees = admissionRawTotal,
-        //                OfferDiscount = admission.Offer != null ?
-        //                    $"{admission.Offer.DiscountPercentage}% (via {admission.Offer.OfferName})" : "None",
-        //                FixedDiscountAmount = admission.DiscountAmount ?? 0m,
-        //                FinalAmount = afterFixedDiscount,
-        //                Courses = admission.AdmissionDetails.Select(ad => new
-        //                {
-        //                    CourseName = ad.Batch?.Course?.CourseName,
-        //                    CourseFee = ad.Batch?.Course?.CourseFee,
-        //                    BatchName = ad.Batch?.BatchName
-        //                })
-        //            });
-        //        }
-
-        //        // 5. Create final result object (without registration fees)
-        //        var result = new
-        //        {
-        //            VisitorId = visitorId,
-        //            VisitorName = visitor.VisitorName,
-        //            TotalRawCourseFees = totalRawCourseFees,
-        //            TotalAfterOfferDiscounts = totalAfterOfferDiscounts,
-        //            TotalAfterFixedDiscounts = totalAfterFixedDiscounts,
-        //            Admissions = admissionsList,
-        //            GrandTotal = totalAfterFixedDiscounts // Only course fees after all discounts
-        //        };
-
-        //        return Ok(result);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, $"Internal server error: {ex.Message}");
-        //    }
+        
 
         [HttpGet("visitor-payment-summary/{visitorId}")]
         public async Task<IActionResult> GetVisitorPaymentSummary(int visitorId)
@@ -603,6 +516,9 @@ namespace TrainingCenter_Api.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
+        
+
+
 
     }
 }

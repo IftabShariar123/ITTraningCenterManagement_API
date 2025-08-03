@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TrainingCenter_Api.Data;
 
@@ -11,9 +12,11 @@ using TrainingCenter_Api.Data;
 namespace TrainingCenter_Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250801132827_Recomen1")]
+    partial class Recomen1
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1248,8 +1251,8 @@ namespace TrainingCenter_Api.Migrations
                     b.Property<int>("InvoiceId")
                         .HasColumnType("int");
 
-                    b.Property<DateOnly>("RecommendationDate")
-                        .HasColumnType("date");
+                    b.Property<DateTime>("RecommendationDate")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("RecommendationStatus")
                         .IsRequired()
@@ -1257,7 +1260,8 @@ namespace TrainingCenter_Api.Migrations
 
                     b.Property<string>("RecommendationText")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
 
                     b.Property<int>("TraineeId")
                         .HasColumnType("int");
@@ -1477,64 +1481,41 @@ namespace TrainingCenter_Api.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TraineeAttendanceId"));
 
+                    b.Property<int>("AdmissionId")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("AttendanceDate")
                         .HasColumnType("datetime2");
 
                     b.Property<int>("BatchId")
                         .HasColumnType("int");
 
-                    b.Property<int>("InstructorId")
-                        .HasColumnType("int");
-
-                    b.HasKey("TraineeAttendanceId");
-
-                    b.HasIndex("BatchId");
-
-                    b.HasIndex("InstructorId");
-
-                    b.ToTable("TraineeAttendances");
-                });
-
-            modelBuilder.Entity("TrainingCenter_Api.Models.TraineeAttendanceDetail", b =>
-                {
-                    b.Property<int>("TraineeAttendanceDetailId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TraineeAttendanceDetailId"));
-
-                    b.Property<int>("AdmissionId")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("AttendanceStatus")
-                        .HasColumnType("bit");
-
-                    b.Property<int?>("InvoiceId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("MarkedTime")
+                    b.Property<string>("InvoiceNo")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("MarkedTime")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Remarks")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("TraineeAttendanceId")
-                        .HasColumnType("int");
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("TraineeId")
                         .HasColumnType("int");
 
-                    b.HasKey("TraineeAttendanceDetailId");
+                    b.HasKey("TraineeAttendanceId");
 
                     b.HasIndex("AdmissionId");
 
-                    b.HasIndex("InvoiceId");
-
-                    b.HasIndex("TraineeAttendanceId");
+                    b.HasIndex("BatchId");
 
                     b.HasIndex("TraineeId");
 
-                    b.ToTable("TraineeAttendanceDetails");
+                    b.ToTable("TraineeAttendances");
                 });
 
             modelBuilder.Entity("TrainingCenter_Api.Models.Visitor", b =>
@@ -2017,7 +1998,7 @@ namespace TrainingCenter_Api.Migrations
                         .HasForeignKey("AdmissionId");
 
                     b.HasOne("TrainingCenter_Api.Models.Invoice", "Invoice")
-                        .WithMany("MoneyReceipts")
+                        .WithMany()
                         .HasForeignKey("InvoiceId");
 
                     b.HasOne("TrainingCenter_Api.Models.Visitor", "Visitor")
@@ -2058,7 +2039,7 @@ namespace TrainingCenter_Api.Migrations
                         .IsRequired();
 
                     b.HasOne("TrainingCenter_Api.Models.Trainee", "Trainee")
-                        .WithMany("Recommendations")
+                        .WithMany()
                         .HasForeignKey("TraineeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -2126,54 +2107,29 @@ namespace TrainingCenter_Api.Migrations
 
             modelBuilder.Entity("TrainingCenter_Api.Models.TraineeAttendance", b =>
                 {
+                    b.HasOne("TrainingCenter_Api.Models.Admission", "Admission")
+                        .WithMany()
+                        .HasForeignKey("AdmissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("TrainingCenter_Api.Models.Batch", "Batch")
                         .WithMany("TraineeAttendances")
                         .HasForeignKey("BatchId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("TrainingCenter_Api.Models.Instructor", "Instructor")
-                        .WithMany("TraineeAttendances")
-                        .HasForeignKey("InstructorId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Batch");
-
-                    b.Navigation("Instructor");
-                });
-
-            modelBuilder.Entity("TrainingCenter_Api.Models.TraineeAttendanceDetail", b =>
-                {
-                    b.HasOne("TrainingCenter_Api.Models.Admission", "Admission")
-                        .WithMany("TraineeAttendanceDetails")
-                        .HasForeignKey("AdmissionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("TrainingCenter_Api.Models.Invoice", "Invoice")
-                        .WithMany("TraineeAttendanceDetails")
-                        .HasForeignKey("InvoiceId");
-
-                    b.HasOne("TrainingCenter_Api.Models.TraineeAttendance", "TraineeAttendance")
-                        .WithMany("TraineeAttendanceDetails")
-                        .HasForeignKey("TraineeAttendanceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("TrainingCenter_Api.Models.Trainee", "Trainee")
-                        .WithMany("TraineeAttendanceDetails")
+                        .WithMany("TraineeAttendances")
                         .HasForeignKey("TraineeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Admission");
 
-                    b.Navigation("Invoice");
+                    b.Navigation("Batch");
 
                     b.Navigation("Trainee");
-
-                    b.Navigation("TraineeAttendance");
                 });
 
             modelBuilder.Entity("TrainingCenter_Api.Models.Visitor", b =>
@@ -2209,8 +2165,6 @@ namespace TrainingCenter_Api.Migrations
             modelBuilder.Entity("TrainingCenter_Api.Models.Admission", b =>
                 {
                     b.Navigation("AdmissionDetails");
-
-                    b.Navigation("TraineeAttendanceDetails");
 
                     b.Navigation("moneyReceipts");
                 });
@@ -2293,15 +2247,6 @@ namespace TrainingCenter_Api.Migrations
                     b.Navigation("Batches");
 
                     b.Navigation("InstructorCourse_Junction_Tables");
-
-                    b.Navigation("TraineeAttendances");
-                });
-
-            modelBuilder.Entity("TrainingCenter_Api.Models.Invoice", b =>
-                {
-                    b.Navigation("MoneyReceipts");
-
-                    b.Navigation("TraineeAttendanceDetails");
                 });
 
             modelBuilder.Entity("TrainingCenter_Api.Models.Offer", b =>
@@ -2322,14 +2267,7 @@ namespace TrainingCenter_Api.Migrations
 
                     b.Navigation("Certificates");
 
-                    b.Navigation("Recommendations");
-
-                    b.Navigation("TraineeAttendanceDetails");
-                });
-
-            modelBuilder.Entity("TrainingCenter_Api.Models.TraineeAttendance", b =>
-                {
-                    b.Navigation("TraineeAttendanceDetails");
+                    b.Navigation("TraineeAttendances");
                 });
 
             modelBuilder.Entity("TrainingCenter_Api.Models.Visitor", b =>

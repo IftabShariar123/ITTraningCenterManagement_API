@@ -49,7 +49,7 @@ namespace TrainingCenter_Api.Controllers
                 .Where(d => d.AdmissionId == id).ToList();
             return admission;
         }
-             
+
 
 
 
@@ -119,9 +119,34 @@ namespace TrainingCenter_Api.Controllers
                                 AdmissionId = newAdmission.AdmissionId
                             };
                             await _context.Trainees.AddAsync(trainee);
+                            await _context.SaveChangesAsync();
+
+                            // Add to BatchTransfer_Junction for the first time
+                            var batchTransfer = new BatchTransfer_Junction
+                            {
+                                TraineeId = trainee.TraineeId,
+                                BatchId = detail.BatchId,
+                                CreatedDate = DateOnly.FromDateTime(DateTime.Now)
+
+                            };
+                            await _context.batchTransfer_Junctions.AddAsync(batchTransfer);
                         }
                         else
                         {
+                            // If trainee exists, check if batch is being changed
+                            if (trainee.BatchId != detail.BatchId)
+                            {
+                                // Add to BatchTransfer_Junction for batch transfer
+                                var batchTransfer = new BatchTransfer_Junction
+                                {
+                                    TraineeId = trainee.TraineeId,
+                                    BatchId = detail.BatchId,
+                                    CreatedDate = DateOnly.FromDateTime(DateTime.Now),
+                                    TransferDate = DateOnly.FromDateTime(DateTime.Now)
+                                };
+                                await _context.batchTransfer_Junctions.AddAsync(batchTransfer);
+                            }
+
                             trainee.BatchId = detail.BatchId;
                             trainee.AdmissionId = newAdmission.AdmissionId;
                             _context.Trainees.Update(trainee);
@@ -271,4 +296,23 @@ namespace TrainingCenter_Api.Controllers
                 .ToListAsync();
         }
     }
+
+
+    //[HttpGet("GetAdmissionsByVisitor/{visitorId}")]
+    //    public async Task<ActionResult<IEnumerable<Admission>>> GetAdmissionsByVisitor(int visitorId)
+    //    {
+    //        var admissions = await _context.Admissions
+    //            .Include(a => a.Visitors)
+    //            .Include(a => a.Offer)
+    //            .Include(a => a.AdmissionNo)
+    //            .Where(a => a.VisitorId == visitorId)
+    //            .ToListAsync();
+
+    //        if (admissions == null || !admissions.Any())
+    //        {
+    //            return NotFound();
+    //        }
+
+    //        return admissions;
+    //    }
 }

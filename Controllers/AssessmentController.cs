@@ -17,143 +17,208 @@ namespace TrainingCenter_Api.Controllers
             _context = context;
         }
 
-        // GET: api/Assessments
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<Assessment>>> GetAssessments()
+        [HttpGet("GetAssessments")]
+        public async Task<ActionResult<IEnumerable<Assessment>>> GetAllAssessments()
         {
-            return await _context.Assessments
+            var assessments = await _context.Assessments
                 .Include(a => a.Trainee)
+                  .ThenInclude(t => t.Registration)
                 .Include(a => a.Batch)
                 .Include(a => a.Instructor)
+                .Include(a => a.Recommendations)
                 .ToListAsync();
+
+            return Ok(assessments);
         }
 
-        // GET: api/Assessments/5
-        [HttpGet("{id}")]
+        [HttpGet("GetAssessment/{id}")]
         public async Task<ActionResult<Assessment>> GetAssessment(int id)
         {
             var assessment = await _context.Assessments
                 .Include(a => a.Trainee)
+                    .ThenInclude(t => t.Registration) 
                 .Include(a => a.Batch)
                 .Include(a => a.Instructor)
+                    .ThenInclude(i => i.Employee) 
+                .Include(a => a.Recommendations)
                 .FirstOrDefaultAsync(a => a.AssessmentId == id);
 
             if (assessment == null)
-            {
                 return NotFound();
-            }
 
-            return assessment;
+            return Ok(assessment);
         }
 
-        // GET: api/Assessments/ByTrainee/5
-        [HttpGet("ByTrainee/{traineeId}")]
-        public async Task<ActionResult<IEnumerable<Assessment>>> GetAssessmentsByTrainee(int traineeId)
+
+        [HttpPost("InsertAssessment")]
+        public async Task<IActionResult> CreateAssessment([FromBody] Assessment assessment)
         {
-            return await _context.Assessments
-                .Include(a => a.Trainee)
-                .Include(a => a.Batch)
-                .Include(a => a.Instructor)
-                .Where(a => a.TraineeId == traineeId)
-                .ToListAsync();
-        }
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
-        // GET: api/Assessments/ByBatch/5
-        [HttpGet("ByBatch/{batchId}")]
-        public async Task<ActionResult<IEnumerable<Assessment>>> GetAssessmentsByBatch(int batchId)
-        {
-            return await _context.Assessments
-                .Include(a => a.Trainee)
-                .Include(a => a.Batch)
-                .Include(a => a.Instructor)
-                .Where(a => a.BatchId == batchId)
-                .ToListAsync();
-        }
-
-        // PUT: api/Assessments/5
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutAssessment(int id, Assessment assessment)
-        {
-            if (id != assessment.AssessmentId)
-            {
-                return BadRequest();
-            }
-
-            assessment.LastModifiedDate = DateTime.Now;
-            assessment.CalculateOverallScore();
-
-            _context.Entry(assessment).State = EntityState.Modified;
+            using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
             {
+                // Calculate AttendancePercentage
+                if (assessment.TotalDays > 0)
+                {
+                    assessment.AttendancePercentage = assessment.DaysPresent * 100m / assessment.TotalDays;
+                }
+
+                // Calculate OverallScore
+                assessment.OverallScore = (assessment.TheoreticalScore + assessment.PracticalScore) / 2m;
+
+                // Save the main Assessment
+                _context.Assessments.Add(assessment);
                 await _context.SaveChangesAsync();
+
+                // Save Recommendations
+                if (assessment.Recommendations != null && assessment.Recommendations.Any())
+                {
+                    foreach (var rec in assessment.Recommendations)
+                    {
+                        rec.AssessmentId = assessment.AssessmentId;
+                        _context.Recommendations.Add(rec);
+                    }
+                    await _context.SaveChangesAsync();
+                }
+
+                await transaction.CommitAsync();
+                return Ok(new { message = "Assessment created successfully", assessmentId = assessment.AssessmentId });
             }
-            catch (DbUpdateConcurrencyException)
+            catch (Exception ex)
             {
-                if (!AssessmentExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                await transaction.RollbackAsync();
+                return StatusCode(500, new { message = "An error occurred", error = ex.Message });
             }
-
-            return NoContent();
         }
 
-        // POST: api/Assessments
-        [HttpPost]
-        public async Task<ActionResult<Assessment>> PostAssessment(Assessment assessment)
+        [HttpPut("UpdateAssessment/{id}")]
+        public async Task<IActionResult> UpdateAssessment(int id, [FromBody] Assessment updatedAssessment)
         {
-            assessment.CreatedDate = DateTime.Now;
-            assessment.CalculateOverallScore();
+            if (id != updatedAssessment.AssessmentId)
+                return BadRequest("Assessment ID mismatch");
 
-            _context.Assessments.Add(assessment);
-            await _context.SaveChangesAsync();
+            using var transaction = await _context.Database.BeginTransactionAsync();
 
-            return CreatedAtAction("GetAssessment", new { id = assessment.AssessmentId }, assessment);
+            try
+            {
+                var existing = await _context.Assessments
+                    .Include(a => a.Recommendations)
+                    .FirstOrDefaultAsync(a => a.AssessmentId == id);
+
+                if (existing == null)
+                    return NotFound();
+
+                // Update scalar fields
+                _context.Entry(existing).CurrentValues.SetValues(updatedAssessment);
+
+                // Recalculate AttendancePercentage
+                if (updatedAssessment.TotalDays > 0)
+                {
+                    existing.AttendancePercentage = updatedAssessment.DaysPresent * 100m / updatedAssessment.TotalDays;
+                }
+
+                // Recalculate OverallScore
+                existing.OverallScore = (updatedAssessment.TheoreticalScore + updatedAssessment.PracticalScore) / 2m;
+
+                // Update Recommendations
+                _context.Recommendations.RemoveRange(existing.Recommendations);
+
+                if (updatedAssessment.Recommendations != null && updatedAssessment.Recommendations.Any())
+                {
+                    foreach (var rec in updatedAssessment.Recommendations)
+                    {
+                        rec.AssessmentId = id;
+                        _context.Recommendations.Add(rec);
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok(new { message = "Assessment updated successfully" });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, new { message = "Update failed", error = ex.Message });
+            }
         }
 
-        // DELETE: api/Assessments/5
-        [HttpDelete("{id}")]
+
+        // DELETE: api/Assessment/{id}
+        [HttpDelete("DeleteAssessment/{id}")]
         public async Task<IActionResult> DeleteAssessment(int id)
         {
-            var assessment = await _context.Assessments.FindAsync(id);
-            if (assessment == null)
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                var assessment = await _context.Assessments
+                    .Include(a => a.Recommendations)
+                    .FirstOrDefaultAsync(a => a.AssessmentId == id);
+
+                if (assessment == null)
+                    return NotFound();
+
+                // Remove related recommendations first
+                _context.Recommendations.RemoveRange(assessment.Recommendations);
+                _context.Assessments.Remove(assessment);
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok(new { message = "Assessment deleted successfully" });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, new { message = "Delete failed", error = ex.Message });
+            }
+        }         
+
+
+
+        [HttpGet("GetInsTraiByBatch/{batchId}")]
+        public async Task<ActionResult<object>> GetBatchWithDetails(int batchId)
+        {
+            // First get batch with instructor info
+            var batch = await _context.Batches
+                .Include(b => b.Instructor)
+                    .ThenInclude(i => i.Employee)
+                .FirstOrDefaultAsync(b => b.BatchId == batchId);
+
+            if (batch == null)
             {
                 return NotFound();
             }
 
-            _context.Assessments.Remove(assessment);
-            await _context.SaveChangesAsync();
+            // Then get all trainees for this batch
+            var trainees = await _context.Trainees
+                .Where(t => t.BatchId == batchId)
+                .Include(t => t.Registration)
+                .ToListAsync();
 
-            return NoContent();
-        }
-
-        // POST: api/Assessments/Finalize/5
-        [HttpPost("Finalize/{id}")]
-        public async Task<IActionResult> FinalizeAssessment(int id)
-        {
-            var assessment = await _context.Assessments.FindAsync(id);
-            if (assessment == null)
+            var result = new
             {
-                return NotFound();
-            }
+                Instructor = batch.Instructor != null ? new
+                {
+                    InstructorId = batch.Instructor.InstructorId,
+                    InstructorName = batch.Instructor.Employee?.EmployeeName
+                } : null,
 
-            assessment.IsFinalized = true;
-            assessment.LastModifiedDate = DateTime.Now;
+                Trainees = trainees.Select(t => new
+                {
+                    TraineeId = t.TraineeId,
+                    TraineeName = t.Registration?.TraineeName
+                }).ToList()
+            };
 
-            _context.Entry(assessment).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = "Assessment finalized successfully." });
+            return Ok(result);
         }
 
-        private bool AssessmentExists(int id)
-        {
-            return _context.Assessments.Any(e => e.AssessmentId == id);
-        }
+
     }
 }

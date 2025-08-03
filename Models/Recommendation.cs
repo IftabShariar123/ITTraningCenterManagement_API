@@ -2,12 +2,7 @@
 
 namespace TrainingCenter_Api.Models
 {
-    public enum RecommendationStatus
-    {
-        Pending,
-        Approved,
-        Rejected
-    }
+ 
     public class Recommendation
     {
         [Key]
@@ -34,13 +29,11 @@ namespace TrainingCenter_Api.Models
         public Invoice? Invoice { get; set; }
 
         [Required]
-        [MaxLength(2000)]
         public string RecommendationText { get; set; }
 
         [Required]
-        [DataType(DataType.Date)]
-        public DateTime RecommendationDate { get; set; }
+        public DateOnly RecommendationDate { get; set; }
 
-        public RecommendationStatus Status { get; set; } = RecommendationStatus.Pending;
+        public string RecommendationStatus { get; set; } // pending,Approved,Rejected
     }
 }

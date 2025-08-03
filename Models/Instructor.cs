@@ -20,11 +20,7 @@ namespace TrainingCenter_Api.Models
 
         public virtual ICollection<InstructorCourse_Junction_Table>? InstructorCourse_Junction_Tables { get; set; } = new List<InstructorCourse_Junction_Table>();          
         public virtual ICollection<BatchPlanningInstructor> BatchPlanningInstructors { get; set; } = new List<BatchPlanningInstructor>();
+        public virtual ICollection<TraineeAttendance>? TraineeAttendances { get; set; }
     }
 }
-
-
-
-
-
 
