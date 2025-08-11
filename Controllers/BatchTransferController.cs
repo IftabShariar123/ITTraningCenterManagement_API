@@ -95,6 +95,22 @@ namespace TrainingCenter_Api.Controllers
             return _context.batchTransfer_Junctions.Any(e => e.TraineeId == traineeId && e.BatchId == batchId);
         }
 
+        //[HttpGet("GetTraineeOptions")]
+        //public async Task<ActionResult> GetTraineeOptions()
+        //{
+        //    var trainees = await _context.Trainees
+        //        .Include(t => t.Registration)
+        //        .Select(t => new
+        //        {
+        //            TraineeId = t.TraineeId,
+        //            TraineeName = t.Registration.TraineeName,
+        //            TraineeNo = t.TraineeIDNo
+        //        })
+        //        .ToListAsync();
+
+        //    return Ok(trainees);
+        //}
+
         [HttpGet("GetTraineeOptions")]
         public async Task<ActionResult> GetTraineeOptions()
         {
@@ -103,13 +119,13 @@ namespace TrainingCenter_Api.Controllers
                 .Select(t => new
                 {
                     TraineeId = t.TraineeId,
-                    TraineeName = t.Registration.TraineeName,
-                    TraineeNo = t.TraineeIDNo
+                    DisplayText = t.Registration.TraineeName // 👈 Renamed to match Angular interface
                 })
                 .ToListAsync();
 
             return Ok(trainees);
         }
+
 
         [HttpGet("GetBatchOptions")]
         public async Task<ActionResult> GetBatchOptions()
@@ -138,5 +154,7 @@ namespace TrainingCenter_Api.Controllers
 
             return NoContent();
         }
+
+        
     }
 }

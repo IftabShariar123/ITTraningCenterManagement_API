@@ -6,16 +6,22 @@ namespace TrainingCenter_Api.Models
     {
         [Key]
         public int AssessmentId { get; set; }
-        public int TraineeId { get; set; }
-        public virtual Trainee? Trainee { get; set; }
 
-        public int BatchId { get; set; }
+        //================Same===========
+        public DateOnly AssessmentDate { get; set; }
+
+        public int BatchId { get; set; } //will be same for all
         public virtual Batch? Batch { get; set; }
 
-        public int InstructorId { get; set; }
+        public int InstructorId { get; set; } // will be same for all
         public virtual Instructor? Instructor { get; set; }
 
-        public DateOnly AssessmentDate { get; set; }
+
+
+        //============unique or individual=======
+        public int TraineeId { get; set; } // it will be individual or unique
+        public virtual Trainee? Trainee { get; set; }
+
         public string AssessmentType { get; set; } // e.g., "Weekly Test", "Final Evaluation", "Behavioral"
 
         // Performance Metrics
@@ -26,8 +32,7 @@ namespace TrainingCenter_Api.Models
 
         // Attendance & Participation
         public int DaysPresent { get; set; }
-        public int TotalDays { get; set; }
-        //public decimal AttendancePercentage => TotalDays > 0 ? (DaysPresent * 100m / TotalDays) : 0;
+        public int TotalDays { get; set; }       
 
         public decimal AttendancePercentage { get; set; } //TotalDays > 0 ? (DaysPresent * 100m / TotalDays) : 0;
         public string ParticipationLevel { get; set; } // "Low", "Medium", "High"

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TrainingCenter_Api.Data;
 using TrainingCenter_Api.Models;
+using TrainingCenter_Api.Models.DTOs;
 
 namespace TrainingCenter_Api.Controllers
 {
@@ -34,19 +35,20 @@ namespace TrainingCenter_Api.Controllers
                 {
                     r.RecommendationId,
                     TraineeName = r.Trainee != null && r.Trainee.Registration != null
-                        ? r.Trainee.Registration.TraineeName
-                        : "Unnamed Trainee",
+        ? r.Trainee.Registration.TraineeName
+        : "Unnamed Trainee",
+                    TraineeIDNo = r.Trainee != null ? r.Trainee.TraineeIDNo : null,   // এই লাইনটা যোগ করো
                     InstructorName = r.Instructor != null && r.Instructor.Employee != null
-                        ? r.Instructor.Employee.EmployeeName
-                        : null,
+        ? r.Instructor.Employee.EmployeeName
+        : null,
                     BatchName = r.Batch != null ? r.Batch.BatchName : null,
                     r.RecommendationStatus,
                     r.RecommendationDate,
                     r.AssessmentId,
                     r.InvoiceId,
                     r.RecommendationText,
-                    // add any other fields you want to expose
                 })
+
                 .ToListAsync();
 
             return Ok(data);
@@ -55,16 +57,16 @@ namespace TrainingCenter_Api.Controllers
 
 
         [HttpGet("GetRecommendation/{id}")]
-        public async Task<ActionResult<Recommendation>> GetRecommendation(int id)
+        public async Task<ActionResult<object>> GetRecommendation(int id)
         {
             var recommendation = await _context.Recommendations
                 .Include(r => r.Trainee)
-                    .ThenInclude(t => t.Registration) 
+                    .ThenInclude(t => t.Registration)
                 .Include(r => r.Instructor)
-                    .ThenInclude(i => i.Employee)    
-                .Include(r => r.Batch)                
-                .Include(r => r.Assessment)           
-                .Include(r => r.Invoice)              
+                    .ThenInclude(i => i.Employee)
+                .Include(r => r.Batch)
+                .Include(r => r.Assessment)
+                .Include(r => r.Invoice)
                 .FirstOrDefaultAsync(r => r.RecommendationId == id);
 
             if (recommendation == null)
@@ -72,42 +74,129 @@ namespace TrainingCenter_Api.Controllers
                 return NotFound();
             }
 
-            return recommendation;
+            // Create a custom response object that includes TraineeIdNo
+            var response = new
+            {
+                // Recommendation properties
+                recommendation.RecommendationId,
+                recommendation.RecommendationDate,
+                recommendation.RecommendationText,
+                recommendation.RecommendationStatus,
+                recommendation.BatchId,
+                recommendation.TraineeId,
+                recommendation.InstructorId,
+                recommendation.AssessmentId,
+                recommendation.InvoiceId,
+
+                // Navigation properties
+                Batch = recommendation.Batch != null ? new
+                {
+                    recommendation.Batch.BatchId,
+                    recommendation.Batch.BatchName
+                } : null,
+
+                Trainee = recommendation.Trainee != null ? new
+                {
+                    recommendation.Trainee.TraineeId,
+                    TraineeIDNo = recommendation.Trainee.TraineeIDNo,
+                    Registration = recommendation.Trainee.Registration != null ? new
+                    {
+                        recommendation.Trainee.Registration.TraineeName
+                    } : null
+                } : null,
+
+                Instructor = recommendation.Instructor != null ? new
+                {
+                    recommendation.Instructor.InstructorId,
+                    Employee = recommendation.Instructor.Employee != null ? new
+                    {
+                        recommendation.Instructor.Employee.EmployeeName
+                    } : null
+                } : null,
+
+                Assessment = recommendation.Assessment,
+                Invoice = recommendation.Invoice
+            };
+
+            return Ok(response);
         }
 
-        // POST: api/Recommendation
         [HttpPost("InsertRecommendation")]
-        public async Task<ActionResult<Recommendation>> CreateRecommendation(Recommendation recommendation)
+        public async Task<IActionResult> InsertRecommendation([FromBody] RecommendationCreateDTO dto)
         {
-            _context.Recommendations.Add(recommendation);
-            await _context.SaveChangesAsync();
+            if (dto == null || dto.Recommendations == null || dto.Recommendations.Count == 0)
+                return BadRequest("Invalid data.");
 
-            return CreatedAtAction(nameof(GetRecommendation), new { id = recommendation.RecommendationId }, recommendation);
-        }
-
-        // PUT: api/Recommendation/5
-        [HttpPut("UpdateRecommendation/{id}")]
-        public async Task<IActionResult> UpdateRecommendation(int id, Recommendation recommendation)
-        {
-            if (id != recommendation.RecommendationId)
-                return BadRequest();
-
-            _context.Entry(recommendation).State = EntityState.Modified;
+            using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
             {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!_context.Recommendations.Any(e => e.RecommendationId == id))
-                    return NotFound();
-                else
-                    throw;
-            }
+                foreach (var detail in dto.Recommendations)
+                {
+                    var recommendation = new Recommendation
+                    {
+                        RecommendationDate = dto.RecommendationDate,
+                        BatchId = dto.BatchId,
+                        InstructorId = dto.InstructorId,
+                        TraineeId = detail.TraineeId,
+                        AssessmentId = detail.AssessmentId,
+                        InvoiceId = detail.InvoiceId,
+                        RecommendationText = detail.RecommendationText,
+                        RecommendationStatus = detail.RecommendationStatus
+                    };
 
-            return NoContent();
+                    _context.Recommendations.Add(recommendation);
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok(new { message = "Recommendations saved successfully." });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, new { message = "An error occurred.", error = ex.Message });
+            }
         }
+
+        // ================= PUT ========================
+        [HttpPut("UpdateRecommendation/{id}")]
+        public async Task<IActionResult> UpdateRecommendation(int id, [FromBody] RecommendationDTO dto)
+        {
+            if (id != dto.RecommendationId)
+                return BadRequest("ID mismatch.");
+
+            try
+            {
+                var recommendation = await _context.Recommendations
+                    .Include(r => r.Assessment)
+                    .Include(r => r.Invoice)
+                    .FirstOrDefaultAsync(r => r.RecommendationId == id);
+
+                if (recommendation == null)
+                    return NotFound();
+
+                // Update fields
+                recommendation.RecommendationText = dto.RecommendationText;
+                recommendation.RecommendationStatus = dto.RecommendationStatus;
+                recommendation.RecommendationDate = dto.RecommendationDate;
+                recommendation.InstructorId = dto.InstructorId;
+                recommendation.TraineeId = dto.TraineeId;
+                recommendation.BatchId = dto.BatchId;
+
+                _context.Recommendations.Update(recommendation);
+                await _context.SaveChangesAsync();
+
+                return Ok(recommendation);
+            }
+            catch (Exception ex)
+            {
+                // Log the error
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
 
         // DELETE: api/Recommendation/5
         [HttpDelete("DeleteRecommendation/{id}")]
@@ -166,65 +255,7 @@ namespace TrainingCenter_Api.Controllers
         }
 
 
-        //[HttpGet("GetInvAssessbyTrainee/{traineeId}")]
-        //public async Task<ActionResult<object>> GetTraineeDocuments(int traineeId)
-        //{
-        //    // Get the trainee with admission details
-        //    var trainee = await _context.Trainees
-        //        .Include(t => t.Admission)
-        //        .Include(t => t.Registration)
-        //        .FirstOrDefaultAsync(t => t.TraineeId == traineeId);
-
-        //    if (trainee == null)
-        //    {
-        //        return NotFound("Trainee not found");
-        //    }
-
-        //    // Get all money receipts for this admission
-        //    var moneyReceipts = await _context.MoneyReceipts
-        //        .Where(mr => mr.AdmissionId == trainee.AdmissionId)
-        //        .Include(mr => mr.Invoice)
-        //        .ToListAsync();
-
-        //    // Get all assessments for this trainee
-        //    var assessments = await _context.Assessments
-        //        .Where(a => a.TraineeId == traineeId)
-        //        .ToListAsync();
-
-        //    // Prepare invoice data from money receipts
-        //    var invoices = moneyReceipts
-        //        .Where(mr => mr.Invoice != null)
-        //        .Select(mr => new
-        //        {
-        //            InvoiceId = mr.Invoice!.InvoiceId,
-        //            InvoiceNo = mr.Invoice.InvoiceNo,
-        //            MoneyReceiptNo = mr.MoneyReceiptNo,
-        //            Category = mr.Category,
-        //            Amount = mr.PaidAmount,
-        //            Date = mr.Invoice.CreatingDate,
-        //            IsInvoiceCreated = mr.IsInvoiceCreated
-        //        })
-        //        .ToList();
-
-        //    // Prepare assessment data
-        //    var assessmentData = assessments.Select(a => new
-        //    {
-        //        a.AssessmentId,
-        //        a.AssessmentType,
-        //        a.AssessmentDate,
-        //        a.OverallScore,
-        //        a.IsFinalized,
-        //        a.TheoreticalScore,
-        //        a.PracticalScore
-        //    }).ToList();
-
-        //    return Ok(new
-        //    {
-        //        Invoices = invoices,
-        //        Assessments = assessmentData,
-        //        TraineeName = trainee.Registration?.TraineeName // Get name from Registration via navigation
-        //    });
-        //}
+        
 
         [HttpGet("GetInvAssessbyTrainee/{traineeId}")]
         public async Task<ActionResult<object>> GetInvAssessbyTrainee(int traineeId)
@@ -280,6 +311,82 @@ namespace TrainingCenter_Api.Controllers
             });
         }
 
-    }
 
+        [HttpGet("trainee-payment-summary/{traineeId}")]
+        public async Task<IActionResult> GetTraineePaymentSummary(int traineeId)
+        {
+            try
+            {
+                var trainee = await _context.Trainees
+                    .Include(t => t.Registration)
+                    .Include(t => t.Admission)
+                        .ThenInclude(a => a.AdmissionDetails)
+                            .ThenInclude(ad => ad.Batch)
+                                .ThenInclude(b => b.Course)
+                    .Include(t => t.Admission)
+                        .ThenInclude(a => a.Offer)
+                    .FirstOrDefaultAsync(t => t.TraineeId == traineeId);
+
+                if (trainee == null)
+                {
+                    return NotFound("Trainee not found");
+                }
+
+                // Get the visitor ID from the registration
+                var visitorId = trainee.Registration?.VisitorId;
+                if (visitorId == null)
+                {
+                    return NotFound("Visitor information not found");
+                }
+
+                // 1. Calculate total course fees after discounts
+                decimal rawTotal = trainee.Admission?.AdmissionDetails
+                    .Sum(ad => ad.Batch?.Course?.CourseFee ?? 0) ?? 0;
+
+                decimal offerDiscount = trainee.Admission?.Offer != null
+                    ? rawTotal * (trainee.Admission.Offer.DiscountPercentage / 100)
+                    : 0;
+
+                decimal totalAfterDiscount = rawTotal - offerDiscount - (trainee.Admission?.DiscountAmount ?? 0);
+
+                // 2. Get ALL payments for this visitor (both Course and Registration Fee)
+                decimal totalPaid = await _context.MoneyReceipts
+                    .Where(mr => mr.VisitorId == visitorId)
+                    .SumAsync(mr => mr.PaidAmount);
+
+                // 3. Calculate due amount
+                decimal dueAmount = totalAfterDiscount - totalPaid;
+                if (dueAmount < 0) dueAmount = 0;
+
+                string statusMessage = dueAmount == 0 ? "Cleared" : "Not Cleared";
+
+                // 4. Get invoice information if exists
+                var invoice = await _context.MoneyReceipts
+                    .Where(mr => mr.VisitorId == visitorId && mr.InvoiceId != null)
+                    .Select(mr => mr.Invoice)
+                    .FirstOrDefaultAsync();
+
+                return Ok(new
+                {
+                    InvoiceNo = invoice?.InvoiceNo ?? "Invoice not created",
+                    TotalAmount = totalAfterDiscount,
+                    TotalPaid = totalPaid,
+                    DueAmount = dueAmount,
+                    StatusMessage = statusMessage
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+        // RecommendationController.cs
+        [HttpGet("GetRecommendationsByBatch/{batchId}")]
+        public async Task<ActionResult<IEnumerable<Recommendation>>> GetRecommendationsByBatch(int batchId)
+        {
+            return await _context.Recommendations
+                .Where(r => r.BatchId == batchId)
+                .ToListAsync();
+        }
+    }
 }

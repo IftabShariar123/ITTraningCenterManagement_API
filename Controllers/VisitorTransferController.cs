@@ -229,5 +229,28 @@ namespace TrainingCenter_Api.Controllers
 
             return NoContent();
         }
+
+        // VisitorAssignmentController.cs
+
+        [HttpGet("GetVisitorAssignments/{visitorId}")]
+        public async Task<IActionResult> GetVisitorAssignments(int visitorId)
+        {
+            var history = await _context.visitorTransfer_Junctions
+                .Where(x => x.VisitorId == visitorId)
+                .Include(x => x.Employee)
+                .OrderByDescending(x => x.TransferDate)
+                .ToListAsync();
+
+            var result = history.Select(h => new
+            {
+                h.TransferDate,
+                h.Notes,
+                h.UserName,
+                EmployeeName = h.Employee.EmployeeName
+            });
+
+            return Ok(result);
+        }
+
     }
 }

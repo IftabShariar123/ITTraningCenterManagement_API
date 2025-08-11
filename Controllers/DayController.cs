@@ -33,6 +33,36 @@ namespace TrainingCenter_Api.Controllers
             var days = await _dayRepository.GetAllAsync();
             return Ok(days);
         }
+        public class ResponseModel<T>
+        {
+            public bool IsSuccess { get; set; }
+            public string Message { get; set; }
+            public T Data { get; set; }
+            public Dictionary<string, string> Errors { get; set; }
+
+            public ResponseModel(bool isSuccess, string message, T data = default)
+            {
+                IsSuccess = isSuccess;
+                Message = message;
+                Data = data;
+            }
+
+            public ResponseModel(bool isSuccess, string message, T data, ModelStateDictionary modelState)
+                : this(isSuccess, message, data)
+            {
+                Errors = modelState.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value.Errors.Select(e => e.ErrorMessage).FirstOrDefault()
+                );
+            }
+        }
+
+        [HttpGet("GetDayss")]
+        public async Task<ActionResult<ResponseModel<IEnumerable<Day>>>> GetAllDayss()
+        {
+            var days = await _dayRepository.GetAllAsync();
+            return Ok(new ResponseModel<IEnumerable<Day>>(true, "Data retrieved", days));
+        }
 
         // GET: api/Day/GetDay/5
         [HttpGet("GetDay/{id}")]

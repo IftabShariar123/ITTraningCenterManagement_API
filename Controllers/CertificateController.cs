@@ -22,25 +22,29 @@ namespace TrainingCenter_Api.Controllers
             _configuration = configuration;
         }
 
-        // GET: api/Certificate
+        
+
         [HttpGet("GetCertificates")]
-        public async Task<ActionResult<IEnumerable<Certificate>>> GetCertificates()
+        public async Task<IActionResult> GetAllCertificates()
         {
             var certificates = await _context.Certificates
-                .Include(c => c.Trainee)
-                .Include(c => c.Course)
-                .Select(c => new {
+                .Select(c => new
+                {
                     c.CertificateId,
                     c.CertificateNumber,
+                    IssueDate = c.IssueDate.ToString("yyyy-MM-dd"),
                     c.TraineeId,
-                    TraineeName = c.Trainee.Registration.TraineeName,
-                    c.CourseId,
-                    CourseName = c.Course.CourseName
+                    TraineeName = c.Trainee.TraineeIDNo + " - " + c.Trainee.Registration.TraineeName,
+                    RegistrationNo = c.Registration.RegistrationNo,
+                    BatchName = c.Batch.BatchName,
+                    CourseName = c.Course.CourseName,
+                    RecommendationStatus = c.Recommendation.RecommendationStatus
                 })
                 .ToListAsync();
 
             return Ok(certificates);
         }
+
 
 
         [HttpGet("GetCertificate/{id}")]
@@ -66,22 +70,6 @@ namespace TrainingCenter_Api.Controllers
 
             return Ok(certificate);
         }
-
-
-        //// POST: api/Certificate
-        //[HttpPost("InsertCertificate")]
-        //public async Task<ActionResult<Certificate>> PostCertificate(Certificate certificate)
-        //{
-        //    // Auto-generate Certificate Number
-        //    certificate.CertificateNumber = await GenerateCertificateNumberAsync();
-
-        //    certificate.IssueDate = DateTime.Now;
-
-        //    _context.Certificates.Add(certificate);
-        //    await _context.SaveChangesAsync();
-
-        //    return CreatedAtAction("GetCertificate", new { id = certificate.CertificateId }, certificate);
-        //}
 
 
         [HttpPost("InsertCertificate")]
@@ -251,5 +239,29 @@ namespace TrainingCenter_Api.Controllers
 
             return Ok(result);
         }
+
+        [HttpGet("GetAvailableTrainees")]
+        public async Task<IActionResult> GetAvailableTrainees()
+        {
+            var traineesWithCertificates = await _context.Certificates
+                .Select(c => c.TraineeId)
+                .Distinct()
+                .ToListAsync();
+
+            var availableTrainees = await _context.Trainees
+                .Where(t => !traineesWithCertificates.Contains(t.TraineeId))
+                .Include(t => t.Registration)
+                .Select(t => new
+                {
+                    t.TraineeId,
+                    t.TraineeIDNo,
+                    t.Registration.TraineeName
+                })
+                .ToListAsync();
+
+            return Ok(availableTrainees);
+        }
+
+        
     }
 }
